@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+
+    <title>World Population</title>
+    <style type="text/css">
+      body {
+        margin: 0px;
+        padding: 0px;
+        background-color: black;
+      }
+
+      #CSCanvas {
+        width: 90vmin; height: 90vmin;
+      }
+
+      input {
+        height: 90vmin;
+        width: 30px;
+        -webkit-appearance: slider-vertical
+      }
+
+      .flex {
+        display: flex;
+      }
+
+      .row {
+        flex-direction: row;
+        justify-content: center;
+      }
+      
+      .col {
+        flex-direction: column;
+      }
+
+      output { 
+        position: absolute;
+        width: 40px; 
+        height: 30px; 
+        text-align: center; 
+        color: white; 
+        display: inline-block; 
+        font: bold 15px/30px Georgia;
+      }
+
+      #quant_display {
+        text-align: center;
+        color: white;
+      }
+      
+      footer {
+        font-size: 10pt;
+        text-align: right;
+        color: white;
+        margin-right: 10px;
+      }
+
+      footer > a {
+        color: lightgray;
+      }
+    </style>
+    <link rel="stylesheet" href="https://cindyjs.org/dist/latest/CindyJS.css">
+    <script type="text/javascript" src="https://cindyjs.org/dist/latest/Cindy.js"></script>
+    <script type="text/javascript" src="https://cindyjs.org/dist/latest/CindyGL.js"></script>
+
+
+    <script id="csinit" type="text/x-cindyscript">
+      resetclock();
+      phi = 0.6;
+      lambda = -3*pi/4;
+      phi = 0;
+      lambda = 0;
+      createimage("buffer", 800, 800);
+      dirty = true;
+      data = [];
+      level = 0;
+      night = false;
+    </script>
+    <script id="csdraw" type="text/x-cindyscript">
+        target = [0,0,0];
+        origin = [
+          -cos(lambda)*cos(phi),
+          sin(phi),
+          sin(lambda)*cos(phi)
+        ]*2.4;
+        mdir = (target-origin)/|(target-origin)|;
+        v = cross([0,1,0], mdir);
+        w = cross(mdir, v);
+        v = v/|v|;
+        w = w/|w|;
+
+        ray(t) := origin+t*dir;
+        if(dirty,
+          cutdir = mdir;
+          javascript("cutdir = " + cutdir + "; update_cut()");
+          colorplot((-1, -1), (1, -1), "buffer",
+            dir = 2 * mdir + #.x*v + #.y*w; dir = dir / |dir|;
+
+            a = (dir*dir);
+            b = 2*(origin*dir);
+            c = origin*origin-1;
+            D = b^2-4*a*c; //discriminant of polynomial a t^2 + b t + c
+
+            if(D>0,
+              spheret = (-b-re(sqrt(D)))/(2*a);
+              pos = ray(spheret);
+              anglelambda = re(arctan2(pos.x, pos.z));
+              anglephi = re(arcsin(pos.y));
+              if(night,
+                hitcolor = imagergb((-pi,-pi/2), (pi, -pi/2), "sphere_night", (anglelambda, anglephi), repeat->true, interpolate->true);
+              ,
+                hitcolor = imagergb((-pi,-pi/2), (pi, -pi/2), "sphere", (anglelambda, anglephi), repeat->true, interpolate->true);
+              );
+              if(mdir * pos < level,
+                hitcolor_1 = 0.7 * hitcolor_1 + 0.3;
+              );
+            );
+
+            hitcolor;
+          );
+          // dirty = false;
+        );
+        drawimage((-1, -1), (1, -1), "buffer", interpolate->true)
+    </script>
+    <script id="csmousedown" type="text/x-cindyscript">
+      lastmouse = mouse();
+    </script>
+    <script id="csmousedrag" type="text/x-cindyscript">
+      d = mouse()-lastmouse;
+      /*
+      if(length(elementsatmouse()) > 0,
+        moveto(A, A.pos + d);
+      ,
+      */
+      lambda = lambda+d.x;
+      phi = phi-d.y;
+      //);
+      lastmouse = mouse();
+      dirty = true;
+    </script>
+
+    <script type="text/javascript">
+      let cutdir = [];
+      let datapoints = [];
+      let population = 0;
+      let quantile = 0.01;
+
+      const update_cut = () => {
+        datapoints.sort((a, b) => {
+          return cutdir[0] * (a.x - b.x) +
+                 cutdir[1] * (a.y - b.y) +
+                 cutdir[2] * (a.z - b.z);
+        });
+        let cumsum = 0;
+        let i = 0;
+        while(cumsum < population * quantile) {
+          cumsum += datapoints[i].val;
+          i += 1;
+        }
+        edgeval = datapoints[i];
+        const level = cutdir[0] * edgeval.x + 
+                      cutdir[1] * edgeval.y +
+                      cutdir[2] * edgeval.z;
+        cdy.evokeCS(`level = ${level}`);
+      }
+
+      var cdy = CindyJS({
+        scripts: "cs*",
+        angleUnit: "°",
+        exclusive: "true",
+        geometry: [
+          // {color: [0, 1, 0], labeled: false, name: "A", size: 10,  type: "Free", pinned: true, pos: [0.30, 0.80, 1]},
+          {name: "Button5", type: "Button", pos: [-0.9,0.9,1], color: [0,0,0], text: "Day", script: "night = false;"},
+          {name: "Button6", type: "Button", pos: [-0.75,0.9,1], color: [0,0,0], text: "Night", script: "night = true;"},
+        ],
+        ports: [
+          {id: "CSCanvas", transform: [{visibleRect: [-1, 1, 1, -1]}], background: "rgb(0,0,0)"}
+        ],
+        csconsole: false,
+        use: [
+          "CindyGL"
+        ],
+        autoplay: true,
+        images: {"sphere": "world.jpg", "sphere_night": "world_night.jpg"}
+      });
+
+      fetch('pop_small.txt').then(resp => resp.text()).then(data => {
+        points = [];
+        let raw_data = data.split('\n').map(line => line.split(' ').map(datapoint => parseFloat(datapoint)));
+        for(let phi = 0; phi <= 90; phi++) {
+          for(let theta = 0; theta <= 180; theta++) {
+            if(raw_data[phi][theta] > 0) {
+              const x = -Math.cos(theta * Math.PI / 90) * Math.sin(phi * Math.PI / 90);
+              const y = Math.cos(phi * Math.PI / 90);
+              const z = -Math.sin(theta * Math.PI / 90) * Math.sin(phi * Math.PI / 90);;
+              // points.append({x: x, y: y, z: z, val: data[theta][phi]});
+              const val = raw_data[phi][theta];
+              population += val;
+              datapoints.push({x: x, y: y, z: z, val: val});
+            }
+          }
+        }
+        cdy.evokeCS("dirty = true;");
+      })
+
+      const update_quant = (qnt) => {
+        quantile = Math.pow(10, qnt);
+        document.getElementById('quant_display').innerText = `${Math.round(quantile*10000)/100}%`
+        document.getElementById('quant_display_2').innerText = `${Math.round(quantile*10000)/100}%`
+        update_cut();
+      }
+    </script>
+  </head>
+  <body>
+    <div class="flex row">
+      <div id="CSCanvas"></div>
+        <div class="flex col">
+          <input type="range" name="Q" orient="vertical" min="-3.0" max="0.0" value="-2" step="0.01" oninput="update_quant(this.value);">
+          <p id="quant_display">1%</p>
+        </div>
+      </div>
+    </div>
+    <footer>
+      Approximately <span id="quant_display_2">1%</span> of the world's population live within the red circle.
+      <br>
+      Population data by <a href="https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-count-rev11">NASA Socioeconomic Data and Applications Center</a>.
+      Maps taken from <a href="http://paul-reed.co.uk/programming.html">here</a> and <a href="https://www.solarsystemscope.com/textures/">here</a>.
+    </footer>
+  </body>
+</html>
+
