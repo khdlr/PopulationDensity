@@ -11,6 +11,18 @@
         background-color: black;
       }
 
+      div.content {
+        width: 100vmin;
+        height: 100vmin;
+        position: absolute;
+        top:0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+
+        margin: auto;
+      }
+
       #CSCanvas {
         width: 90vmin; height: 90vmin;
       }
@@ -53,7 +65,9 @@
         font-size: 10pt;
         text-align: right;
         color: white;
-        margin-right: 10px;
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
       }
 
       footer > a {
@@ -211,8 +225,9 @@
     </script>
   </head>
   <body>
-    <div class="flex row">
-      <div id="CSCanvas"></div>
+    <div class="content">
+      <div class="flex row">
+        <div id="CSCanvas"></div>
         <div class="flex col">
           <input type="range" name="Q" orient="vertical" min="-3.0" max="0.0" value="-2" step="0.01" oninput="update_quant(this.value);">
           <p id="quant_display">1%</p>
@@ -225,6 +240,7 @@
       Population data by <a href="https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-count-rev11">NASA Socioeconomic Data and Applications Center</a>.
       Maps taken from <a href="http://paul-reed.co.uk/programming.html">here</a> and <a href="https://www.solarsystemscope.com/textures/">here</a>.
     </footer>
+    </div>
   </body>
 </html>
 
